@@ -1,0 +1,20 @@
+# Secrets
+.env
+.env.*
+config.py
+secrets.json
+secrets.txt
+apikeys.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
