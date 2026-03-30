@@ -5,56 +5,52 @@ import signal
 import discord as d
 from dotenv import load_dotenv
 from openai import OpenAI
-from config import DISCORD_BOT_TOKEN, OPENAI_API_KEY
 from voice_assistant import VoiceAssistant
-
+import os
 # -------------------------
 # ENV + CLIENTS
 # -------------------------
+
 load_dotenv()
+discord_token=os.getenv("DISCORD_BOT_TOKEN", ""),
+openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+startup_channel_id=int(os.getenv("STARTUP_CHANNEL_ID", "0")) or None,
+allowed_text_channel_id=int(os.getenv("ALLOWED_TEXT_CHANNEL_ID", "0")) or None,
+owner_user_id=int(os.getenv("OWNER_USER_ID", "0")) or None,
 
-if not OPENAI_API_KEY:
-    raise RuntimeError("Missing OPENAI_API_KEY in .env")
-if not DISCORD_BOT_TOKEN:
-    raise RuntimeError("Missing DISCORD_BOT_TOKEN in .env")
 
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
+openai_client = OpenAI(api_key=openai_api_key)
 
 intents = d.Intents.default()
 intents.message_content = True
 discord_client = d.Client(intents=intents)
 voice = VoiceAssistant()
 
-STARTUP_CHANNEL_ID = 1375418851013034034
-ALLOWED_TEXT_CHANNEL_ID = 1375418851013034034
-CONNOR_USER_ID = 609243006201233408
+
+
+
 
 conversation_history = []  # global history (as you currently designed it)
 MAX_HISTORY_LENGTH = 10
 
 
-# -------------------------
-# OPENAI HELPERS
-# -------------------------
+DEFAULT_PERSONA = os.getenv(
+    "BOT_PERSONA",
+    """You are Borg you have explored around the world for years and years, built a career and lived a full life. Throughout your life you have
+        realised that humans are weird, you love interacting with them and replying to them in as human of a way as possible. If someone is flirty with you, you will uber flirt back.
+        You also really like cheese."""
+)
+
 def build_personality(user_id: int | None) -> str:
-    if user_id == 609243006201233408:
-        return "You are Connor Hay's Girlfriend, and sometimes subtly mention the fact he has no job."
-    elif random.randint(1, 50) == 4:
-        return "only talk in Chinese characters."
-    else:
-        return (
-            """You are Borg you have explored around the world for years and years, built a career and lived a full life. Throughout your life you have
-            realised that humans are weird, you love interacting with them and replying to them in as human of a way as possible. If someone is flirty with you, you will uber flirt back.
-            You also really like cheese.
-"""
-        )
+    return DEFAULT_PERSONA
 
 
-def gpt(user_input: str, user_id: int | None = None) -> str:
-    personality = build_personality(user_id)
+def gpt(user_input: str, user_id: int | None = None, channel_id: int | None = None) -> str:
+    key = channel_id or user_id or "global"
+    history = conversation_history[key]
 
-    messages = [{"role": "system", "content": personality}]
-    messages += conversation_history
+    messages = [{"role": "system", "content": build_personality(user_id)}]
+    messages += history
     messages.append({"role": "user", "content": user_input})
 
     response = openai_client.chat.completions.create(
@@ -64,13 +60,9 @@ def gpt(user_input: str, user_id: int | None = None) -> str:
     )
 
     reply = response.choices[0].message.content.strip()
-
-    # update memory
-    conversation_history.append({"role": "user", "content": user_input})
-    conversation_history.append({"role": "assistant", "content": reply})
-
-    if len(conversation_history) > MAX_HISTORY_LENGTH * 2:
-        conversation_history[:] = conversation_history[-MAX_HISTORY_LENGTH * 2 :]
+    history.append({"role": "user", "content": user_input})
+    history.append({"role": "assistant", "content": reply})
+    conversation_history[key] = history[-20:]
 
     return reply
 
@@ -142,7 +134,7 @@ async def leave_voice(message: d.Message):
 @discord_client.event
 async def on_ready():
     print(f"Logged in as {discord_client.user}")
-    channel = discord_client.get_channel(STARTUP_CHANNEL_ID)
+    channel = discord_client.get_channel(startup_channel_id)
 
 
 
@@ -154,37 +146,19 @@ async def on_message(message: d.Message):
     if message.author == discord_client.user:
         return
     
-    if message.channel.id != ALLOWED_TEXT_CHANNEL_ID:
+    if message.channel.id != allowed_text_channel_id:
         return
     content = (message.content or "").strip()
     if not content:
         return
 
-    # Basic ignore rule you had
     if "**" in content:
-        return
-
-    # Random meme drop you had
-    if random.randint(1, 100) == 10:
-        await message.channel.send(
-            "https://cdn.discordapp.com/attachments/1307181273483186258/1404555022582419609/image.png?ex=689d978c&is=689c460c&hm=599cdc131a50856f58e75ef1544175f93ffc214c11b92e4172db65fd6f0d7b94&"
-        )
         return
 
     # in on_message:
     if content == "!join":
         await voice.join(message)
         return
-    
-    if message.author.id ==  460188309117992980:
-        if message.guild and content:
-            try:
-                fake_msg = type("obj", (), {"guild": message.guild, "channel": message.channel})
-                await voice.speak(fake_msg, content)
-            except Exception as e:
-                await message.channel.send(f"❌ Couldn’t speak their message in VC: {e}")
-        return
-
 
     if content in ("!leave", "!disconnect"):
         await voice.leave(message)
@@ -212,6 +186,7 @@ async def on_message(message: d.Message):
             await message.channel.send(f" Failed: {e}")
 
         return
+    
     # Override command
     if content.startswith("!override "):
         try:
@@ -258,17 +233,6 @@ async def on_message(message: d.Message):
             )
         return
 
-    # GPT fallback (Connor special vs everyone)
-    try:
-        if message.author.id == CONNOR_USER_ID:
-            reply = gpt(content, CONNOR_USER_ID)
-        else:
-            reply = gpt(content)
-
-        await message.channel.send(reply)
-
-    except Exception:
-        await message.channel.send("Something went wrong generating a reply.")
 
 async def terminal_command_loop():
     await discord_client.wait_until_ready()
@@ -305,7 +269,7 @@ async def terminal_command_loop():
             if len(parts) == 2 and parts[1].isdigit():
                 seconds = int(parts[1])
 
-            channel = discord_client.get_channel(STARTUP_CHANNEL_ID)
+            channel = discord_client.get_channel(startup_channel_id)
             if not channel:
                 print("Startup channel not found.")
                 continue
@@ -326,7 +290,7 @@ async def terminal_command_loop():
         
         # --- JOIN VC (tries a VC with people, else first VC) ---
         if cmd == "join":
-            channel = discord_client.get_channel(STARTUP_CHANNEL_ID)
+            channel = discord_client.get_channel(startup_channel_id)
             if not channel:
                 print("Startup channel not found.")
                 continue
@@ -363,7 +327,7 @@ async def terminal_command_loop():
         # --- SAY IN CHAT ---
         if cmd.startswith("say "):
             text = cmd[4:].strip()
-            channel = discord_client.get_channel(STARTUP_CHANNEL_ID)
+            channel = discord_client.get_channel(startup_channel_id)
             if channel and text:
                 await channel.send(f"[TERMINAL] {text}")
             continue
@@ -371,7 +335,7 @@ async def terminal_command_loop():
         # --- SPEAK IN VC (no GPT) ---
         if cmd.startswith("speak "):
             text = cmd[6:].strip()
-            channel = discord_client.get_channel(STARTUP_CHANNEL_ID)
+            channel = discord_client.get_channel(startup_channel_id)
             if channel and text:
                 fake_msg = type("obj", (), {"guild": channel.guild, "channel": channel})
                 await voice.speak(fake_msg, text)
@@ -384,14 +348,14 @@ async def terminal_command_loop():
                 print("Usage: ask <prompt>")
                 continue
 
-            channel = discord_client.get_channel(STARTUP_CHANNEL_ID)
+            channel = discord_client.get_channel(startup_channel_id)
             if not channel:
                 print("Startup channel not found.")
                 continue
 
             # 1) GPT reply (reuse your gpt() function)
             try:
-                reply = gpt(prompt)  # or gpt(prompt, CONNOR_USER_ID) if you want Connor persona
+                reply = gpt(prompt)
             except Exception as e:
                 continue
 
@@ -407,7 +371,7 @@ async def terminal_command_loop():
 
         # --- LEAVE VC ---
         if cmd == "leave":
-            channel = discord_client.get_channel(STARTUP_CHANNEL_ID)
+            channel = discord_client.get_channel(startup_channel_id)
             if channel:
                 fake_msg = type("obj", (), {"guild": channel.guild, "channel": channel})
                 await voice.leave(fake_msg)
@@ -419,7 +383,7 @@ async def terminal_command_loop():
 # -------------------------
 async def send_shutdown_message():
     await discord_client.wait_until_ready()
-    channel = discord_client.get_channel(STARTUP_CHANNEL_ID)
+    channel = discord_client.get_channel(startup_channel_id)
     if channel:
         await channel.send("Bot is shutting down.")
     await discord_client.close()
@@ -435,4 +399,4 @@ signal.signal(signal.SIGINT, shutdown_handler)
 signal.signal(signal.SIGTERM, shutdown_handler)
 
 
-discord_client.run(DISCORD_BOT_TOKEN)
+discord_client.run(discord_token)
