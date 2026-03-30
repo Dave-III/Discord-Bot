@@ -18,14 +18,6 @@ This Discord bot is powered by the openAI API, with Text Chat and Voice Assistan
 - OpenAI API
 - python-dotenv
 
-## Project Structure
-.
-├── ChatBot.py `\n`
-├── openai_stuff.py `\n`
-├── voice_assistant.py `\n`
-├── requirements.txt `\n`
-├── .env `\n`
-└── README.md `\n`
 
 ### Setup Custom `.env`
 
