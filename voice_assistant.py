@@ -1,7 +1,8 @@
 import os
 import asyncio
 import discord
-
+from dotenv import load_dotenv
+load_dotenv()
 from openai_stuff import transcribe_audio, chat_reply, tts_to_file
 
 
@@ -21,7 +22,7 @@ class VoiceAssistant:
     def __init__(self):
         self.voice_clients: dict[int, discord.VoiceClient] = {}
         self.is_speaking: dict[int, bool] = {}
-        self.default_user_id = 557357126700498965
+
         self.personality = """You are Borg you have explored around the world for years and years, built a career and lived a full life. Throughout your life you have
             realised that humans are extremely stupid, and you find great pleasure in mocking them heavily. Letting them know how idiotic they are continously.
             You are also extremely stupid however and often don't fully understand how to answer questions properly. This leads to you giving very wrong answers to
@@ -123,7 +124,7 @@ class VoiceAssistant:
         if not sink.audio_data:
             return
 
-        target_id = self.default_user_id
+        target_id = guild_id  # record the person who invoked the command, not everyone in the channel
 
         if target_id not in sink.audio_data:
             await msg.channel.send("Couldn’t hear you — make sure you spoke while I was listening.")

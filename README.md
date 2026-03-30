@@ -1,36 +1,37 @@
-\# Borg Discord Bot
+# Borg Discord Bot
 
+This Discord bot is powered by the openAI API, with Text Chat and Voice Assistant Features. It also has A custom UI that is controlled through the terminal.
 
+## Features
 
-A conversational Discord bot powered by the OpenAI API that can listen to messages and respond contextually.
+- Context-aware text chat
+- OpenAI-powered responses
+- Voice channel support
+- Speech-to-text and text-to-speech
+- Configurable using a `.env` file
+- AI Image Generation
 
+## Tech Stack
 
+- Python
+- discord.py
+- OpenAI API
+- python-dotenv
 
-\## Features
+## Project Structure
+.
+├── ChatBot.py
+├── openai_stuff.py
+├── voice_assistant.py
+├── requirements.txt
+├── .env
+└── README.md
 
-\- Real-time conversational responses
+### Setup Custom `.env`
 
-\- OpenAI API integration
-
-\- Discord bot event handling
-
-\- Context-aware replies
-
-
-
-\## Tech Stack
-
-\- Python
-
-\- Discord.py
-
-\- OpenAI API
-
-
-
-\## Setup
-
-
-
-1\. Clone the repo:
-
+```env
+DISCORD_BOT_TOKEN=
+OPENAI_API_KEY=
+STARTUP_CHANNEL_ID=
+ALLOWED_TEXT_CHANNEL_ID=
+OWNER_USER_ID=
